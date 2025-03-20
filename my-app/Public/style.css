@@ -1,0 +1,215 @@
+/* ------------------------------ */
+/* Global Resets & Base Styles */
+/* ------------------------------ */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Poppins', sans-serif;
+  background: #f2f2f2;
+  color: #333;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ------------------------------ */
+/* Header Styling */
+/* ------------------------------ */
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px;
+  background: #fff;
+  border-bottom: 2px solid #ccc;
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.1);
+}
+
+header h1 {
+  font-size: 1.8em;
+  font-weight: 600;
+  color: #333;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.header-btn {
+  padding: 8px 12px;
+  font-size: 0.9em;
+  font-weight: 500;
+  color: #333;
+  background: #fff;
+  border: 2px solid #999;
+  border-radius: 25px;
+  cursor: pointer;
+  transition: box-shadow 0.3s, transform 0.3s;
+}
+
+.header-btn:hover {
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.2);
+  transform: translateY(-2px);
+}
+
+/* ------------------------------ */
+/* Alerts Dropdown */
+/* ------------------------------ */
+#alertsBtn {
+  position: relative;
+}
+
+.alerts-dropdown {
+  display: none;
+  position: absolute;
+  top: 50px;
+  right: 10px;
+  width: 280px;
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+  padding: 10px;
+  z-index: 100;
+}
+
+.alerts-dropdown.show {
+  display: block;
+}
+
+.alert-item {
+  padding: 10px;
+  border-bottom: 1px solid #ddd;
+  font-size: 0.9em;
+  color: #444;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.alert-item:last-child {
+  border-bottom: none;
+}
+
+.alert-item button {
+  padding: 5px 10px;
+  background: #007bff;
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  border-radius: 4px;
+  font-size: 0.8em;
+}
+
+.alert-item button:hover {
+  background: #0056b3;
+}
+
+.no-alerts {
+  text-align: center;
+  color: #666;
+  font-size: 0.9em;
+}
+
+/* ------------------------------ */
+/* Job Board List & Viewer */
+/* ------------------------------ */
+.job-board-container {
+  width: 90%;
+  max-width: 800px;
+  margin: 40px auto;
+  background: #fff;
+  padding: 20px;
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.job-board-container h2 {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.job-board-container ul {
+  list-style: none;
+  padding: 0;
+}
+
+.job-board-container li {
+  padding: 12px;
+  background: #f9f9f9;
+  border-radius: 8px;
+  margin: 10px 0;
+  transition: box-shadow 0.3s ease-in-out;
+}
+
+.job-board-container li:hover {
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+.job-board-container a {
+  text-decoration: none;
+  font-size: 1em;
+  color: #007bff;
+  font-weight: 600;
+}
+
+.job-board-container a:hover {
+  text-decoration: underline;
+}
+
+/* ------------------------------ */
+/* Task Details Page */
+/* ------------------------------ */
+.task-details-container {
+  width: 90%;
+  max-width: 600px;
+  margin: 40px auto;
+  background: #fff;
+  padding: 20px;
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.task-details-container h2 {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.form-row {
+  margin-bottom: 15px;
+}
+
+label {
+  font-weight: 600;
+  color: #555;
+}
+
+input {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 1em;
+}
+
+.modal-btn {
+  display: block;
+  width: 100%;
+  padding: 10px;
+  background: #333;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1em;
+  transition: background 0.3s ease;
+}
+
+.modal-btn:hover {
+  background: #555;
+}

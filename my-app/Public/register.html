@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>TaskFlow - Register</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="auth-container">
+    <h2>Register for TaskFlow</h2>
+    <form id="registerForm">
+      <div class="form-row">
+        <label for="regUsername">Username (must be unique):</label>
+        <input type="text" id="regUsername" required>
+      </div>
+      <div class="form-row">
+        <label for="regPassword">Password:</label>
+        <input type="password" id="regPassword" required>
+      </div>
+      <div class="form-row">
+        <label for="regConfirmPassword">Confirm Password:</label>
+        <input type="password" id="regConfirmPassword" required>
+      </div>
+      <button type="submit" class="modal-btn">Register</button>
+    </form>
+    <p>Already have an account? <a href="login.html">Login here</a></p>
+    <div id="registerError" class="error-message"></div>
+  </div>
+
+  <script>
+    document.getElementById("registerForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      
+      const username = document.getElementById("regUsername").value.trim();
+      const password = document.getElementById("regPassword").value.trim();
+      const confirmPassword = document.getElementById("regConfirmPassword").value.trim();
+      const errorDiv = document.getElementById("registerError");
+
+      if (password !== confirmPassword) {
+        errorDiv.innerText = "Passwords do not match.";
+        return;
+      }
+
+      try {
+        const res = await fetch("/api/register", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username, password })
+        });
+
+        const data = await res.json();
+        if (res.ok) {
+          window.location.href = "index.html";
+        } else {
+          errorDiv.innerText = data.error;
+        }
+      } catch (err) {
+        console.error("Registration error:", err);
+        errorDiv.innerText = "An error occurred during registration.";
+      }
+    });
+  </script>
+</body>
+</html>

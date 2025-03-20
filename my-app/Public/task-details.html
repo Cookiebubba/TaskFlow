@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>TaskFlow - Task Details</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>Task Details</h1>
+    <div class="header-right">
+      <span id="usernameDisplay"></span>
+      <button class="header-btn" onclick="openSettings()">⚙ Settings</button>
+      <button class="header-btn" id="alertsBtn">🔔 Alerts</button>
+      <div id="alertsDropdown" class="alerts-dropdown"></div>
+      <button class="header-btn" onclick="logout()">Logout</button>
+    </div>
+  </header>
+
+  <div class="task-details-container">
+    <h2>Task Information</h2>
+    <div class="form-row">
+      <label for="taskTitle">Title:</label>
+      <input type="text" id="taskTitle" disabled>
+    </div>
+
+    <div class="form-row">
+      <label for="assignedUser">Assigned To:</label>
+      <input type="text" id="assignedUser" disabled>
+    </div>
+
+    <h3>Phase Due Dates</h3>
+    <div id="taskPhases"></div>
+
+    <button class="modal-btn" onclick="updateTask()">Save Changes</button>
+    <p id="taskMessage" class="error-message"></p>
+  </div>
+
+  <script>
+    let taskId;
+
+    async function fetchTaskDetails() {
+      const params = new URLSearchParams(window.location.search);
+      taskId = params.get("id");
+
+      const response = await fetch(`/api/task/${taskId}`);
+      if (!response.ok) {
+        alert("Failed to load task.");
+        window.location.href = "index.html";
+        return;
+      }
+
+      const task = await response.json();
+      document.getElementById("taskTitle").value = task.title;
+      document.getElementById("assignedUser").value = task.assigned_to || "Unassigned";
+
+      loadTaskPhases(task.phases);
+    }
+
+    function loadTaskPhases(phases) {
+      const container = document.getElementById("taskPhases");
+      container.innerHTML = "";
+
+      phases.forEach(phase => {
+        const div = document.createElement("div");
+        div.classList.add("form-row");
+        div.innerHTML = `
+          <label>${phase.name} Due Date:</label>
+          <input type="date" id="phase-${phase.id}" value="${phase.due_date || ''}">
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    async function updateTask() {
+      const updates = [];
+      document.querySelectorAll("#taskPhases input").forEach(input => {
+        const phaseId = input.id.split("-")[1];
+        updates.push({ phase_id: phaseId, due_date: input.value });
+      });
+
+      const response = await fetch(`/api/task/${taskId}/update-due-dates`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ updates })
+      });
+
+      if (response.ok) {
+        document.getElementById("taskMessage").innerText = "Task updated successfully.";
+      } else {
+        document.getElementById("taskMessage").innerText = "Update failed.";
+      }
+    }
+
+    async function checkAuth() {
+      const response = await fetch("/api/user");
+      if (!response.ok) {
+        window.location.href = "login.html";
+        return;
+      }
+
+      const data = await response.json();
+      document.getElementById("usernameDisplay").innerText = `👤 ${data.user.username}`;
+      fetchTaskDetails();
+    }
+
+    function openSettings() {
+      window.location.href = "settings.html";
+    }
+
+    async function logout() {
+      await fetch("/api/logout", { method: "POST" });
+      window.location.href = "login.html";
+    }
+
+    checkAuth();
+  </script>
+</body>
+</html>
