@@ -35,6 +35,12 @@
       const password = document.getElementById("regPassword").value.trim();
       const confirmPassword = document.getElementById("regConfirmPassword").value.trim();
       const errorDiv = document.getElementById("registerError");
+      const submitBtn = document.querySelector("button[type='submit']");
+
+      if (username.length < 3) {
+        errorDiv.innerText = "Username must be at least 3 characters.";
+        return;
+      }
 
       if (password !== confirmPassword) {
         errorDiv.innerText = "Passwords do not match.";
@@ -42,6 +48,9 @@
       }
 
       try {
+        submitBtn.disabled = true;
+        submitBtn.textContent = "Registering...";
+
         const res = await fetch("/api/register", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -50,13 +59,16 @@
 
         const data = await res.json();
         if (res.ok) {
-          window.location.href = "login.html"; // or dashboard page
+          window.location.href = "login.html";
         } else {
-          errorDiv.innerText = data.error;
+          errorDiv.innerText = data.error || "Registration failed.";
         }
       } catch (err) {
         console.error("Registration error:", err);
         errorDiv.innerText = "An error occurred during registration.";
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Register";
       }
     });
   </script>
