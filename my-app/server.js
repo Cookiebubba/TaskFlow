@@ -28,8 +28,77 @@ app.get("/", (req, res) => {
 
 // Initialize database
 const db = new sqlite3.Database("database.db", (err) => {
-  if (err) console.error("Database error:", err);
-  else console.log("Connected to SQLite.");
+  if (err) {
+    console.error("Database error:", err);
+  } else {
+    console.log("Connected to SQLite.");
+
+    db.serialize(() => {
+      // Users table
+      db.run(`CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT UNIQUE NOT NULL,
+        passwordHash TEXT NOT NULL,
+        createdAt INTEGER NOT NULL
+      )`);
+
+      // Job boards table
+      db.run(`CREATE TABLE IF NOT EXISTS job_boards (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        owner_id INTEGER NOT NULL,
+        createdAt INTEGER NOT NULL,
+        FOREIGN KEY (owner_id) REFERENCES users(id)
+      )`);
+
+      // Job board user access roles
+      db.run(`CREATE TABLE IF NOT EXISTS job_board_users (
+        job_board_id INTEGER,
+        user_id INTEGER,
+        role TEXT NOT NULL DEFAULT 'Viewer',
+        PRIMARY KEY (job_board_id, user_id),
+        FOREIGN KEY (job_board_id) REFERENCES job_boards(id),
+        FOREIGN KEY (user_id) REFERENCES users(id)
+      )`);
+
+      // Tasks table
+      db.run(`CREATE TABLE IF NOT EXISTS tasks (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        job_board_id INTEGER NOT NULL,
+        title TEXT NOT NULL,
+        assigned_to INTEGER,
+        status TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        due_date INTEGER,
+        FOREIGN KEY (job_board_id) REFERENCES job_boards(id),
+        FOREIGN KEY (assigned_to) REFERENCES users(id)
+      )`);
+
+      // Alerts table
+      db.run(`CREATE TABLE IF NOT EXISTS alerts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        type TEXT NOT NULL,
+        message TEXT NOT NULL,
+        related_id INTEGER,
+        created_at INTEGER NOT NULL,
+        is_read INTEGER DEFAULT 0,
+        FOREIGN KEY (user_id) REFERENCES users(id)
+      )`);
+
+      // Task phases table
+      db.run(`CREATE TABLE IF NOT EXISTS task_phases (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        task_id INTEGER NOT NULL,
+        phase_name TEXT NOT NULL,
+        entered_at INTEGER NOT NULL,
+        exited_at INTEGER,
+        FOREIGN KEY (task_id) REFERENCES tasks(id)
+      )`);
+
+      console.log("All necessary tables created or verified.");
+    });
+  }
 });
 
 // Auth endpoints
