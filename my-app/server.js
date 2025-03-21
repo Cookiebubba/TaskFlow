@@ -146,6 +146,201 @@ app.get("/api/user", (req, res) => {
   else res.status(401).json({ error: "Not authenticated." });
 });
 
+// ─────────────────────────────────────────────
+// 🔐 Role-Based Access Middleware
+// ─────────────────────────────────────────────
+
+function getUserRole(boardId, userId, callback) {
+  db.get(
+    "SELECT role FROM job_board_users WHERE job_board_id = ? AND user_id = ?",
+    [boardId, userId],
+    (err, row) => {
+      if (err || !row) return callback(null);
+      callback(row.role);
+    }
+  );
+}
+
+function checkBoardAccess(paramKey, allowedRoles) {
+  return (req, res, next) => {
+    const boardId = req.params[paramKey] || req.body[paramKey];
+    if (!req.session.user) return res.status(401).json({ error: "Unauthorized" });
+
+    getUserRole(boardId, req.session.user.id, (role) => {
+      if (!role || !allowedRoles.includes(role)) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
+      next();
+    });
+  };
+}
+// ─────────────────────────────────────────────
+// 📦 Job Board Routes
+// ─────────────────────────────────────────────
+
+app.post("/api/job-board", (req, res) => {
+  const { name } = req.body;
+  if (!req.session.user) return res.status(401).json({ error: "Unauthorized" });
+
+  db.run("INSERT INTO job_boards (name, owner_id, createdAt) VALUES (?, ?, ?)",
+    [name, req.session.user.id, Date.now()],
+    function (err) {
+      if (err) return res.status(500).json({ error: "Failed to create board." });
+
+      db.run("INSERT INTO job_board_users (job_board_id, user_id, role) VALUES (?, ?, ?)",
+        [this.lastID, req.session.user.id, "Admin"]);
+      res.json({ board_id: this.lastID });
+    });
+});
+
+app.put("/api/job-board/:id", checkBoardAccess("id", ["Admin"]), (req, res) => {
+  const { name } = req.body;
+  db.run("UPDATE job_boards SET name = ? WHERE id = ?", [name, req.params.id], (err) => {
+    if (err) return res.status(500).json({ error: "Failed to update board." });
+    res.json({ message: "Board updated." });
+  });
+});
+
+app.post("/api/job-board/:id/invite", checkBoardAccess("id", ["Admin"]), (req, res) => {
+  const { username, role } = req.body;
+  db.get("SELECT id FROM users WHERE username = ?", [username], (err, user) => {
+    if (!user) return res.status(404).json({ error: "User not found." });
+
+    db.run("INSERT OR IGNORE INTO job_board_users (job_board_id, user_id, role) VALUES (?, ?, ?)",
+      [req.params.id, user.id, role || "Viewer"], function (err) {
+        if (err) return res.status(500).json({ error: "Failed to invite user." });
+
+        db.run("INSERT INTO alerts (user_id, type, message, related_id, created_at) VALUES (?, ?, ?, ?, ?)",
+          [user.id, "job_board_invite", `You've been invited to a board.`, req.params.id, Date.now()]);
+        res.json({ message: "User invited." });
+      });
+  });
+});
+
+app.delete("/api/job-board/:id/remove-user", checkBoardAccess("id", ["Admin"]), (req, res) => {
+  const { userId } = req.body;
+  db.run("DELETE FROM job_board_users WHERE job_board_id = ? AND user_id = ?",
+    [req.params.id, userId], (err) => {
+      if (err) return res.status(500).json({ error: "Failed to remove user." });
+      res.json({ message: "User removed." });
+    });
+});
+
+app.post("/api/job-board/:id/archive", checkBoardAccess("id", ["Admin"]), (req, res) => {
+  const { archived } = req.body;
+  db.run("UPDATE job_boards SET is_archived = ? WHERE id = ?", [archived ? 1 : 0, req.params.id], (err) => {
+    if (err) return res.status(500).json({ error: "Failed to archive board." });
+    res.json({ message: archived ? "Board archived." : "Board unarchived." });
+  });
+});
+
+// ─────────────────────────────────────────────
+// 📂 Sub-Board (Phase) Routes
+// ─────────────────────────────────────────────
+
+app.post("/api/job-board/:id/sub-boards", checkBoardAccess("id", ["Admin", "Editor"]), (req, res) => {
+  const { name } = req.body;
+  db.run("INSERT INTO sub_boards (job_board_id, name) VALUES (?, ?)",
+    [req.params.id, name], function (err) {
+      if (err) return res.status(500).json({ error: "Failed to create sub-board." });
+      res.json({ id: this.lastID });
+    });
+});
+
+app.put("/api/job-board/sub-board/:id", (req, res) => {
+  const { name } = req.body;
+  db.run("UPDATE sub_boards SET name = ? WHERE id = ?", [name, req.params.id], (err) => {
+    if (err) return res.status(500).json({ error: "Failed to update sub-board." });
+    res.json({ message: "Sub-board updated." });
+  });
+});
+
+app.delete("/api/job-board/sub-board/:id", (req, res) => {
+  db.run("DELETE FROM sub_boards WHERE id = ?", [req.params.id], (err) => {
+    if (err) return res.status(500).json({ error: "Failed to delete sub-board." });
+    res.json({ message: "Sub-board deleted." });
+  });
+});
+
+// ─────────────────────────────────────────────
+// 📝 Task Routes
+// ─────────────────────────────────────────────
+
+app.post("/api/task", (req, res) => {
+  const { boardId, title, assigned_to, status, due_date } = req.body;
+  db.run(
+    "INSERT INTO tasks (job_board_id, title, assigned_to, status, created_at, due_date) VALUES (?, ?, ?, ?, ?, ?)",
+    [boardId, title, assigned_to, status, Date.now(), due_date],
+    function (err) {
+      if (err) return res.status(500).json({ error: "Failed to create task." });
+      res.json({ id: this.lastID });
+    }
+  );
+});
+
+app.put("/api/task/:id", (req, res) => {
+  const { title, assigned_to, status } = req.body;
+  db.run(
+    "UPDATE tasks SET title = ?, assigned_to = ?, status = ? WHERE id = ?",
+    [title, assigned_to, status, req.params.id],
+    (err) => {
+      if (err) return res.status(500).json({ error: "Failed to update task." });
+      res.json({ message: "Task updated." });
+    }
+  );
+});
+
+app.post("/api/task/:id/update-due-dates", (req, res) => {
+  // You can expand this logic later to track phase-specific due dates
+  res.json({ message: "Stub: due dates received", updates: req.body.updates });
+});
+
+app.post("/api/task/:id/move-phase", (req, res) => {
+  const { newPhase } = req.body;
+  const taskId = req.params.id;
+  const now = Date.now();
+
+  // Exit the current phase
+  db.run("UPDATE task_phases SET exited_at = ? WHERE task_id = ? AND exited_at IS NULL", [now, taskId]);
+
+  // Log the new phase
+  db.run(
+    "INSERT INTO task_phases (task_id, phase_name, entered_at) VALUES (?, ?, ?)",
+    [taskId, newPhase, now],
+    function (err) {
+      if (err) return res.status(500).json({ error: "Failed to log phase." });
+      res.json({ message: "Phase updated." });
+    }
+  );
+});
+
+app.post("/api/task/:id/complete", (req, res) => {
+  db.run("UPDATE tasks SET status = 'Complete' WHERE id = ?", [req.params.id], (err) => {
+    if (err) return res.status(500).json({ error: "Failed to complete task." });
+    res.json({ message: "Task marked complete." });
+  });
+});
+
+// ─────────────────────────────────────────────
+// 📊 Timeline + Reminder Routes
+// ─────────────────────────────────────────────
+
+app.get("/api/task/:id/timeline", (req, res) => {
+  db.all(
+    "SELECT phase_name, entered_at, exited_at FROM task_phases WHERE task_id = ? ORDER BY entered_at ASC",
+    [req.params.id],
+    (err, rows) => {
+      if (err) return res.status(500).json({ error: "Failed to load timeline." });
+      res.json(rows);
+    }
+  );
+});
+
+app.post("/api/task/:id/check-reminders", (req, res) => {
+  // 🔧 Stub for future reminder logic (e.g., checking overdue phases)
+  res.json({ message: "Reminder check complete." });
+});
+
 app.get("/api/alerts", (req, res) => {
   if (!req.session.user) return res.status(401).json({ error: "Unauthorized" });
   db.all("SELECT * FROM alerts WHERE user_id = ? AND is_read = 0", [req.session.user.id], (err, rows) => {
