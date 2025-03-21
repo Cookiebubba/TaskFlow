@@ -35,15 +35,31 @@ const db = new sqlite3.Database("database.db", (err) => {
 // Auth endpoints
 app.post("/api/register", (req, res) => {
   const { username, password } = req.body;
-  if (!username || !password) return res.status(400).json({ error: "Username and password required." });
+
+  if (!username || !password) {
+    return res.status(400).json({ error: "Username and password required." });
+  }
 
   bcrypt.hash(password, 10, (err, hash) => {
-    if (err) return res.status(500).json({ error: "Internal server error." });
-    db.run("INSERT INTO users (username, passwordHash, createdAt) VALUES (?, ?, ?)", [username, hash, Date.now()], function(err) {
-      if (err) return res.status(500).json({ error: "Username already exists." });
-      req.session.user = { id: this.lastID, username };
-      res.json({ message: "Registration successful", user: req.session.user });
-    });
+    if (err) {
+      console.error("Hash error:", err.message);
+      return res.status(500).json({ error: "Internal server error." });
+    }
+
+    db.run("INSERT INTO users (username, passwordHash, createdAt) VALUES (?, ?, ?)",
+      [username, hash, Date.now()],
+      function(err) {
+        if (err) {
+          console.error("Registration error:", err.message);
+          if (err.message.includes("UNIQUE")) {
+            return res.status(400).json({ error: "Username already exists." });
+          }
+          return res.status(500).json({ error: "Registration failed." });
+        }
+
+        req.session.user = { id: this.lastID, username };
+        res.json({ message: "Registration successful", user: req.session.user });
+      });
   });
 });
 
