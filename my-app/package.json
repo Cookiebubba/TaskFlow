@@ -12,11 +12,11 @@
     "express": "^4.18.2",
     "express-session": "^1.17.3",
     "sqlite3": "^5.1.6",
-    "connect-sqlite3": "^0.0.11"
+    "connect-sqlite3": "^0.9.0"
   },
   "devDependencies": {
     "nodemon": "^2.0.22"
   },
   "author": "Brandyn Johnson",
-  "license": "Bofa"
+  "license": "MIT"
 }
