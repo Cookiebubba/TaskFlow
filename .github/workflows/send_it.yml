@@ -1,4 +1,4 @@
-name: Deploy TaskFlow App
+name: Deploy TaskFlow
 
 on:
   push:
@@ -13,21 +13,26 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Set up Node.js
+      - name: Set working directory to my-app
+        run: cd my-app
+
+      - name: Use Node.js
         uses: actions/setup-node@v3
         with:
           node-version: 18
 
-      - name: Install SQLite3
-        run: sudo apt-get install -y sqlite3
-
       - name: Install dependencies
-        run: npm install
-
-      - name: Setup SQLite Database
         run: |
+          cd my-app
+          npm install
+
+      - name: Create SQLite databases
+        run: |
+          cd my-app
           touch database.db
           touch sessions.db
 
-      - name: Start the server (if applicable)
-        run: node server.js
+      - name: Run Server
+        run: |
+          cd my-app
+          node server.js
