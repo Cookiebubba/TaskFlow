@@ -30,7 +30,7 @@
   <script>
     document.getElementById("registerForm").addEventListener("submit", async (e) => {
       e.preventDefault();
-      
+
       const username = document.getElementById("regUsername").value.trim();
       const password = document.getElementById("regPassword").value.trim();
       const confirmPassword = document.getElementById("regConfirmPassword").value.trim();
@@ -50,7 +50,7 @@
 
         const data = await res.json();
         if (res.ok) {
-          window.location.href = "index.html";
+          window.location.href = "index.html"; // or dashboard page
         } else {
           errorDiv.innerText = data.error;
         }
