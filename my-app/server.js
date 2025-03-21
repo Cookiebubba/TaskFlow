@@ -162,4 +162,37 @@ app.get("/api/user", (req, res) => {
   else res.status(401).json({ error: "Not authenticated." });
 });
 
+app.get("/api/alerts", (req, res) => {
+  if (!req.session.user) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  db.all("SELECT * FROM alerts WHERE user_id = ? AND is_read = 0", [req.session.user.id], (err, rows) => {
+    if (err) {
+      console.error("Failed to fetch alerts:", err.message);
+      return res.status(500).json({ error: "Failed to fetch alerts." });
+    }
+    res.json(rows);
+  });
+});
+
+app.get("/api/job-boards", (req, res) => {
+  if (!req.session.user) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  db.all(`
+    SELECT jb.id, jb.name
+    FROM job_boards jb
+    JOIN job_board_users jbu ON jb.id = jbu.job_board_id
+    WHERE jbu.user_id = ?
+  `, [req.session.user.id], (err, rows) => {
+    if (err) {
+      console.error("Failed to fetch job boards:", err.message);
+      return res.status(500).json({ error: "Failed to fetch job boards." });
+    }
+    res.json(rows);
+  });
+});
+
 app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
