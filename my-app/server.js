@@ -8,7 +8,6 @@ const SQLiteStore = require("connect-sqlite3")(session);
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Use a secure secret from environment or fallback for local dev
 const SESSION_SECRET = process.env.SESSION_SECRET || "fallback-dev-secret";
 
 app.use(session({
@@ -16,7 +15,7 @@ app.use(session({
   resave: false,
   saveUninitialized: false,
   store: new SQLiteStore({ db: "sessions.db", dir: "./" }),
-  cookie: { maxAge: 1000 * 60 * 60 } // 1 hour default
+  cookie: { maxAge: 1000 * 60 * 60 }
 }));
 
 app.use(express.json());
@@ -26,15 +25,12 @@ app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "login.html"));
 });
 
-// Initialize database
 const db = new sqlite3.Database("database.db", (err) => {
   if (err) {
     console.error("Database error:", err);
   } else {
     console.log("Connected to SQLite.");
-
     db.serialize(() => {
-      // Users table
       db.run(`CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         username TEXT UNIQUE NOT NULL,
@@ -42,7 +38,6 @@ const db = new sqlite3.Database("database.db", (err) => {
         createdAt INTEGER NOT NULL
       )`);
 
-      // Job boards table
       db.run(`CREATE TABLE IF NOT EXISTS job_boards (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
@@ -51,7 +46,6 @@ const db = new sqlite3.Database("database.db", (err) => {
         FOREIGN KEY (owner_id) REFERENCES users(id)
       )`);
 
-      // Job board user access roles
       db.run(`CREATE TABLE IF NOT EXISTS job_board_users (
         job_board_id INTEGER,
         user_id INTEGER,
@@ -61,7 +55,6 @@ const db = new sqlite3.Database("database.db", (err) => {
         FOREIGN KEY (user_id) REFERENCES users(id)
       )`);
 
-      // Tasks table
       db.run(`CREATE TABLE IF NOT EXISTS tasks (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         job_board_id INTEGER NOT NULL,
@@ -74,7 +67,6 @@ const db = new sqlite3.Database("database.db", (err) => {
         FOREIGN KEY (assigned_to) REFERENCES users(id)
       )`);
 
-      // Alerts table
       db.run(`CREATE TABLE IF NOT EXISTS alerts (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER NOT NULL,
@@ -86,7 +78,6 @@ const db = new sqlite3.Database("database.db", (err) => {
         FOREIGN KEY (user_id) REFERENCES users(id)
       )`);
 
-      // Task phases table
       db.run(`CREATE TABLE IF NOT EXISTS task_phases (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         task_id INTEGER NOT NULL,
@@ -101,20 +92,16 @@ const db = new sqlite3.Database("database.db", (err) => {
   }
 });
 
-// Auth endpoints
 app.post("/api/register", (req, res) => {
   const { username, password } = req.body;
-
   if (!username || !password) {
     return res.status(400).json({ error: "Username and password required." });
   }
-
   bcrypt.hash(password, 10, (err, hash) => {
     if (err) {
       console.error("Hash error:", err.message);
       return res.status(500).json({ error: "Internal server error." });
     }
-
     db.run("INSERT INTO users (username, passwordHash, createdAt) VALUES (?, ?, ?)",
       [username, hash, Date.now()],
       function(err) {
@@ -125,7 +112,6 @@ app.post("/api/register", (req, res) => {
           }
           return res.status(500).json({ error: "Registration failed." });
         }
-
         req.session.user = { id: this.lastID, username };
         res.json({ message: "Registration successful", user: req.session.user });
       });
@@ -135,15 +121,13 @@ app.post("/api/register", (req, res) => {
 app.post("/api/login", (req, res) => {
   const { username, password, stayLoggedIn } = req.body;
   if (!username || !password) return res.status(400).json({ error: "Username and password required." });
-
   db.get("SELECT * FROM users WHERE username = ?", [username], (err, user) => {
     if (!user) return res.status(400).json({ error: "Invalid credentials." });
-
     bcrypt.compare(password, user.passwordHash, (err, result) => {
       if (result) {
         req.session.user = { id: user.id, username: user.username };
         if (stayLoggedIn) {
-          req.session.cookie.maxAge = 1000 * 60 * 60 * 24 * 30; // 30 days
+          req.session.cookie.maxAge = 1000 * 60 * 60 * 24 * 30;
         }
         res.json({ message: "Login successful", user: req.session.user });
       } else {
@@ -163,10 +147,7 @@ app.get("/api/user", (req, res) => {
 });
 
 app.get("/api/alerts", (req, res) => {
-  if (!req.session.user) {
-    return res.status(401).json({ error: "Unauthorized" });
-  }
-
+  if (!req.session.user) return res.status(401).json({ error: "Unauthorized" });
   db.all("SELECT * FROM alerts WHERE user_id = ? AND is_read = 0", [req.session.user.id], (err, rows) => {
     if (err) {
       console.error("Failed to fetch alerts:", err.message);
@@ -177,21 +158,63 @@ app.get("/api/alerts", (req, res) => {
 });
 
 app.get("/api/job-boards", (req, res) => {
-  if (!req.session.user) {
-    return res.status(401).json({ error: "Unauthorized" });
-  }
-
-  db.all(`
-    SELECT jb.id, jb.name
-    FROM job_boards jb
-    JOIN job_board_users jbu ON jb.id = jbu.job_board_id
-    WHERE jbu.user_id = ?
-  `, [req.session.user.id], (err, rows) => {
+  if (!req.session.user) return res.status(401).json({ error: "Unauthorized" });
+  db.all(`SELECT jb.id, jb.name FROM job_boards jb JOIN job_board_users jbu ON jb.id = jbu.job_board_id WHERE jbu.user_id = ?`, [req.session.user.id], (err, rows) => {
     if (err) {
       console.error("Failed to fetch job boards:", err.message);
       return res.status(500).json({ error: "Failed to fetch job boards." });
     }
     res.json(rows);
+  });
+});
+
+app.get("/api/job-board/:id", (req, res) => {
+  const boardId = req.params.id;
+  db.get("SELECT * FROM job_boards WHERE id = ?", [boardId], (err, row) => {
+    if (err) {
+      console.error("Failed to fetch job board:", err.message);
+      return res.status(500).json({ error: "Failed to fetch job board." });
+    }
+    res.json(row);
+  });
+});
+
+app.get("/api/job-board/:id/users", (req, res) => {
+  const boardId = req.params.id;
+  db.all("SELECT u.id, u.username, jbu.role FROM users u JOIN job_board_users jbu ON u.id = jbu.user_id WHERE jbu.job_board_id = ?", [boardId], (err, rows) => {
+    if (err) {
+      console.error("Failed to fetch users for board:", err.message);
+      return res.status(500).json({ error: "Failed to fetch users." });
+    }
+    res.json(rows);
+  });
+});
+
+app.get("/api/job-board/:id/sub-boards", (req, res) => {
+  const boardId = req.params.id;
+  db.all("SELECT DISTINCT phase_name FROM task_phases WHERE task_id IN (SELECT id FROM tasks WHERE job_board_id = ?)", [boardId], (err, rows) => {
+    if (err) {
+      console.error("Failed to fetch sub-boards:", err.message);
+      return res.status(500).json({ error: "Failed to fetch sub-boards." });
+    }
+    res.json(rows);
+  });
+});
+
+app.get("/api/task/:id", (req, res) => {
+  const taskId = req.params.id;
+  db.get("SELECT * FROM tasks WHERE id = ?", [taskId], (err, task) => {
+    if (err || !task) {
+      return res.status(404).json({ error: "Task not found." });
+    }
+    db.all("SELECT * FROM task_phases WHERE task_id = ? ORDER BY entered_at ASC", [taskId], (err2, phases) => {
+      if (err2) {
+        console.error("Failed to fetch task phases:", err2.message);
+        return res.status(500).json({ error: "Failed to fetch task phases." });
+      }
+      task.phases = phases;
+      res.json(task);
+    });
   });
 });
 
